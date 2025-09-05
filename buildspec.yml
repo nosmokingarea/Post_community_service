@@ -1,1 +1,33 @@
+version: 0.2
 
+env:
+  variables:
+    APP_DIR: app          # 애플리케이션 소스 폴더 (Dockerfile 위치)
+    K8S_SUBDIR: k8s       # 매니페스트 템플릿이 있는 폴더
+    REPO_NAME: myapp      # ECR 리포 이름
+
+phases:
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REGION=ap-northeast-2
+      - REPO_URI=$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - IMAGE_URI=$REPO_URI:$IMAGE_TAG
+      - echo "IMAGE_URI=$IMAGE_URI"
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - docker build -t $IMAGE_URI $APP_DIR
+  post_build:
+    commands:
+      - echo "Pushing image to ECR..."
+      - docker push $IMAGE_URI
+      - echo "Rendering deployment.yaml..."
+      - mkdir -p rendered
+      - sed "s|\${IMAGE_URI}|$IMAGE_URI|g" $K8S_SUBDIR/deployment.tpl.yaml > rendered/deployment.yaml
+artifacts:
+  files:
+    - rendered/deployment.yaml
