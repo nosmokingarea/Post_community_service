@@ -25,9 +25,10 @@ phases:
     commands:
       - echo "Pushing image to ECR..."
       - docker push $IMAGE_URI
-      - echo "Rendering deployment.yaml..."
+      - echo "Rendering deployment.yaml with IMAGE_URI=$IMAGE_URI"
       - mkdir -p rendered
-      - sed "s|\${IMAGE_URI}|$IMAGE_URI|g" $K8S_SUBDIR/deployment.tpl.yaml > rendered/deployment.yaml
+      - envsubst < $K8S_SUBDIR/deployment.tpl.yaml > rendered/deployment.yaml
+
 artifacts:
   files:
     - rendered/deployment.yaml
