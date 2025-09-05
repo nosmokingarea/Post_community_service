@@ -1,5 +1,8 @@
 2:38 : 한국어 파이프라인 테스트
 2:38 : ENG Pipeline Test
+2:47 : 테스트 재시도
+2:47 : test retry
+
 # Post Service
 
 AWS Community Service의 게시글 서비스를 담당하는 Flask 애플리케이션입니다.
