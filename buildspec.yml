@@ -1,0 +1,56 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: "ap-northeast-2"
+    REPO_NAME: "post-service"
+    APP_NAME: "post-service"
+    K8S_NAMESPACE: "post-service"
+    K8S_CLUSTER_NAME: "karina"
+    ACCOUNT_ID: "245040175511"
+    ECR_REPO_URI: "245040175511.dkr.ecr.ap-northeast-2.amazonaws.com/post-service"
+
+phases:
+  pre_build:
+    commands:
+      - 'echo "=== Pre-build 단계 시작 ==="'
+      - 'echo "현재 디렉토리: $(pwd)"'
+      - 'echo "AWS 리전: $AWS_DEFAULT_REGION"'
+      - 'echo "계정 ID: $ACCOUNT_ID"'
+      - 'echo "ECR 로그인 중..."'
+      - 'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin "$ECR_REPO_URI"'
+      - 'echo "이미지 태그 생성 중..."'
+      - 'IMAGE_TAG="$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)"'
+      - 'IMAGE_URI="$ECR_REPO_URI:$IMAGE_TAG"'
+      - 'IMAGE_URI_LATEST="$ECR_REPO_URI:latest"'
+      - 'echo "IMAGE_URI=$IMAGE_URI"'
+      - 'echo "IMAGE_URI_LATEST=$IMAGE_URI_LATEST"'
+
+  build:
+    commands:
+      - 'echo "=== Build 단계 시작 ==="'
+      - 'echo "Docker 이미지 빌드 중..."'
+      - 'docker build -t "$IMAGE_URI" -t "$IMAGE_URI_LATEST" .'
+      - 'echo "빌드된 이미지 확인..."'
+      - 'docker images'
+
+  post_build:
+    commands:
+      - 'echo "=== Post-build 단계 시작 ==="'
+      - 'echo "Docker 이미지를 ECR에 푸시 중..."'
+      - 'docker push "$IMAGE_URI"'
+      - 'docker push "$IMAGE_URI_LATEST"'
+      - 'echo "imagedefinitions.json 생성 중..."'
+      - 'echo "[{\"name\":\"$APP_NAME\",\"imageUri\":\"$IMAGE_URI\"}]" > imagedefinitions.json'
+      - 'echo "imagedefinitions.json 내용:"'
+      - 'cat imagedefinitions.json'
+      - 'echo "=== ECR 푸시 완료 ==="'
+
+artifacts:
+  files:
+    - imagedefinitions.json
+  name: build-output
+
+cache:
+  paths:
+    - '/root/.cache/pip/**/*'
