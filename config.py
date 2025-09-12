@@ -19,12 +19,6 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'mysql+pymysql://postuser:postpass@mysql:3306/postdb'
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-
-    
-    ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
-    
-    
     # AWS Cognito 설정
     COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', 'ap-northeast-2_nneGIIVuJ')
     COGNITO_REGION = os.environ.get('COGNITO_REGION', 'ap-northeast-2')

@@ -35,16 +35,9 @@ COGNITO_USER_POOL_ID=your-cognito-user-pool-id
 COGNITO_REGION=ap-northeast-2
 COGNITO_CLIENT_ID=your-cognito-client-id
 
-# AWS S3 Configuration (Production)
-AWS_S3_BUCKET_NAME=post-images
-AWS_S3_REGION=ap-northeast-2
-
 # MSA Service URLs
 USER_SERVICE_URL=http://localhost:8081
 NOTIFICATION_SERVICE_URL=http://localhost:8082
-
-# Environment
-ENVIRONMENT=development
 ```
 
 ### 2단계: 의존성 설치
@@ -90,8 +83,6 @@ kubectl create secret generic post-service-secrets \
   --from-literal=cognito-user-pool-id="your-cognito-user-pool-id" \
   --from-literal=cognito-region="ap-northeast-2" \
   --from-literal=cognito-client-id="your-cognito-client-id" \
-  --from-literal=aws-s3-bucket-name="post-images" \
-  --from-literal=aws-s3-region="ap-northeast-2" \
   --from-literal=secret-key="your-secret-key-here"
 ```
 

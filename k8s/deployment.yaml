@@ -22,9 +22,6 @@ spec:
           image: 245040175511.dkr.ecr.ap-northeast-2.amazonaws.com/post-service:latest
           ports:
             - containerPort: 8081
-          env:
-            - name: ENVIRONMENT
-              value: "production"
           envFrom:
             - secretRef:
                 name: post-db-secret
