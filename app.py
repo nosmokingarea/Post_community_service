@@ -37,7 +37,7 @@ def create_app(config_class=None):
     # CORS 설정 (OPTIONS 포함, credentials 허용)
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000"],
+            "origins": ["https://www.hhottdogg.shop/"],
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }

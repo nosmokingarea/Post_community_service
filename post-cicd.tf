@@ -101,6 +101,22 @@ data "aws_iam_policy_document" "cb_policy" {
     actions = ["iam:PassRole"]
     resources = ["*"]
   }
+
+  statement {
+    sid = "S3Access"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:PutObject",
+      "s3:PutObjectAcl",
+      "s3:GetBucketVersioning",
+      "s3:GetBucketLocation"
+    ]
+    resources = [
+      "${data.aws_s3_bucket.artifacts.arn}/*",
+      data.aws_s3_bucket.artifacts.arn
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "cb_inline" {
@@ -210,6 +226,22 @@ data "aws_iam_policy_document" "cp_policy" {
     sid       = "UseCodeStarConnection"
     actions   = ["codestar-connections:UseConnection"]
     resources = [data.aws_codestarconnections_connection.github.arn]
+  }
+
+  statement {
+    sid       = "S3Access"
+    actions   = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:PutObject",
+      "s3:PutObjectAcl",
+      "s3:GetBucketVersioning",
+      "s3:GetBucketLocation"
+    ]
+    resources = [
+      "${data.aws_s3_bucket.artifacts.arn}/*",
+      data.aws_s3_bucket.artifacts.arn
+    ]
   }
 
 }

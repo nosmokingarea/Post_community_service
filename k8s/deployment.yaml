@@ -21,7 +21,7 @@ spec:
         - name: post-service
           image: 245040175511.dkr.ecr.ap-northeast-2.amazonaws.com/post-service:latest
           ports:
-            - containerPort: 8081
+            - containerPort: 8082
           envFrom:
             - secretRef:
                 name: post-db-secret
@@ -37,14 +37,14 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: 8082
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: 8082
             initialDelaySeconds: 15
             periodSeconds: 5
 ---
@@ -69,7 +69,7 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 8081
+      targetPort: 8082
   type: LoadBalancer
 ---
 apiVersion: autoscaling/v2

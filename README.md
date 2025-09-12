@@ -35,9 +35,6 @@ COGNITO_USER_POOL_ID=your-cognito-user-pool-id
 COGNITO_REGION=ap-northeast-2
 COGNITO_CLIENT_ID=your-cognito-client-id
 
-# MSA Service URLs
-USER_SERVICE_URL=http://localhost:8081
-NOTIFICATION_SERVICE_URL=http://localhost:8082
 ```
 
 ### 2단계: 의존성 설치
@@ -59,7 +56,7 @@ python -c "from app import create_app; from post.models import db; app = create_
 python app.py
 ```
 
-서비스가 http://localhost:5000 에서 실행됩니다.
+서비스가 http://localhost:8082 에서 실행됩니다.
 
 ## 🐳 Docker로 실행
 
@@ -130,10 +127,10 @@ Post-master/
 
 ## 🛠️ API 문서
 
-서비스 실행 후 http://localhost:5000/api/docs 에서 Swagger UI를 확인할 수 있습니다.
+서비스 실행 후 http://localhost:8082/api/docs 에서 Swagger UI를 확인할 수 있습니다.
 
 ## 🔍 헬스 체크
 
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:8082/health
 ```

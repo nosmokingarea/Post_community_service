@@ -16,7 +16,7 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     
     # 데이터베이스 설정 - Docker 환경에서는 mysql 서비스명 사용
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'mysql+pymysql://postuser:postpass@mysql:3306/postdb'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # AWS Cognito 설정
@@ -24,8 +24,4 @@ class Config:
     COGNITO_REGION = os.environ.get('COGNITO_REGION', 'ap-northeast-2')
     COGNITO_CLIENT_ID = os.environ.get('COGNITO_CLIENT_ID', '2v16jp80j40neuuhtlgg8t')
 
-class TestConfig(Config):
-    """테스트용 설정"""
-    TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
 
