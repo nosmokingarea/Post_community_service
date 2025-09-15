@@ -46,6 +46,26 @@ def create_app(config_class=None):
     # 데이터베이스 초기화
     db.init_app(app)
     
+    # 데이터베이스 생성
+    with app.app_context():
+        try:
+            from sqlalchemy import create_engine, text
+            from urllib.parse import urlparse
+            
+            db_url = app.config['SQLALCHEMY_DATABASE_URI']
+            parsed = urlparse(db_url)
+            db_name = parsed.path[1:]
+            base_url = f"{parsed.scheme}://{parsed.netloc}/"
+            
+            engine = create_engine(base_url)
+            with engine.connect() as conn:
+                conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {db_name}"))
+                conn.commit()
+            
+            logger.info(f"Database '{db_name}' created successfully")
+        except Exception as e:
+            logger.error(f"Database creation failed: {str(e)}")
+    
     # 데이터베이스 테이블 생성
     with app.app_context():
         try:
