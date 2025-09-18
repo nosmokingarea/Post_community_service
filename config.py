@@ -33,5 +33,9 @@ class Config:
     MAX_FILE_SIZE = int(os.environ.get('MAX_FILE_SIZE', 5 * 1024 * 1024))  # 5MB
     ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
     # ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'avi', 'mov'}  # 비디오 지원 비활성화
+    
+    # AWS X-Ray 설정
+    AWS_XRAY_TRACING_NAME = os.environ.get('AWS_XRAY_TRACING_NAME', 'post-service')
+    AWS_XRAY_CONTEXT_MISSING = os.environ.get('AWS_XRAY_CONTEXT_MISSING', 'LOG_ERROR')
 
 

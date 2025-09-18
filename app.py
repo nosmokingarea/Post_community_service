@@ -9,7 +9,8 @@ from flask import Flask, jsonify, send_from_directory, render_template
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 from werkzeug.exceptions import HTTPException, NotFound
-
+from aws_xray_sdk.core import xray_recorder
+from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
 
 from post.models import db
 from post.routes import bp
@@ -21,6 +22,10 @@ logger = logging.getLogger(__name__)
 def create_app(config_class=None):
     """Flask 애플리케이션 팩토리"""
     app = Flask(__name__)
+    
+    # X-Ray 분산 추적 설정 (다른 미들웨어보다 먼저 설정)
+    xray_recorder.configure(service='post-service')
+    XRayMiddleware(app, xray_recorder)
     
     # 설정 로드
     if config_class:
