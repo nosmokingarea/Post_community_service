@@ -30,9 +30,9 @@ def create_app(config_class=None):
         from config import Config
         app.config.from_object(Config)
 
-    # 이미지 업로드 설정 (개발: 로컬, 운영: S3)
+    # 이미지 업로드 설정 (S3 사용)
     app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB (S3 업로드용)
 
     # CORS 설정 (OPTIONS 포함, credentials 허용)
     CORS(app, resources={

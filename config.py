@@ -23,5 +23,15 @@ class Config:
     COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', 'ap-northeast-2_nneGIIVuJ')
     COGNITO_REGION = os.environ.get('COGNITO_REGION', 'ap-northeast-2')
     COGNITO_CLIENT_ID = os.environ.get('COGNITO_CLIENT_ID', '2v16jp80j40neuuhtlgg8t')
+    
+    # S3 설정
+    S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'karina-winter')
+    S3_REGION = os.environ.get('S3_REGION', 'ap-northeast-2')
+    S3_FOLDER_PREFIX = os.environ.get('S3_FOLDER_PREFIX', 'image_files')
+    
+    # 파일 업로드 설정 (이미지만 지원)
+    MAX_FILE_SIZE = int(os.environ.get('MAX_FILE_SIZE', 5 * 1024 * 1024))  # 5MB
+    ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+    # ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'avi', 'mov'}  # 비디오 지원 비활성화
 
 

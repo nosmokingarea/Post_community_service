@@ -10,6 +10,7 @@ from .models import db, Post, Like, Category, kst_now, PostStatus
 from .services import PostService, CategoryService
 from .validators import PostValidator
 from .auth_utils import jwt_required
+from .s3_service import S3Service
 import uuid
 import requests
 import json
@@ -72,14 +73,14 @@ def deactivate_me():
         verify = cognito_client.admin_get_user(UserPoolId=USER_POOL_ID, Username=username)
         enabled_flag = verify.get('Enabled', None)
 
-        # 4) 로컬 DB 사용자 비활성화 (있을 경우)
-        try:
-            user = User.query.filter_by(username=username).first()
-            if user:
-                user.is_active = False
-                db.session.commit()
-        except Exception:
-            db.session.rollback()
+        # 4) 로컬 DB 사용자 비활성화 (있을 경우) - User 모델이 없으므로 주석 처리
+        # try:
+        #     user = User.query.filter_by(username=username).first()
+        #     if user:
+        #         user.is_active = False
+        #         db.session.commit()
+        # except Exception:
+        #     db.session.rollback()
 
         return api_response(data={ 'username': username, 'enabled': enabled_flag }, message="계정이 비활성화되었습니다")
     except Exception as e:
@@ -297,6 +298,8 @@ def list_posts():
             "view_count": p.view_count,
             "like_count": p.like_count,
             "comment_count": p.comment_count,  # 데이터베이스의 댓글 수 사용 (추가됨)
+            "media_files": p.media_files or [],  # 미디어 파일 정보 추가
+            "media_count": p.media_count,  # 미디어 파일 개수 추가
             "created_at": p.created_at.isoformat(),
             "updated_at": p.updated_at.isoformat() if p.updated_at else None
         } for p in pagination.items]
@@ -377,6 +380,8 @@ def get_post(post_id):
             "view_count": post.view_count,
             "like_count": post.like_count,
             "comment_count": post.comment_count,  # 데이터베이스의 댓글 수 사용 (추가됨)
+            "media_files": post.media_files or [],  # 미디어 파일 정보 추가
+            "media_count": post.media_count,  # 미디어 파일 개수 추가
             "created_at": post.created_at.isoformat(),
             "updated_at": post.updated_at.isoformat() if post.updated_at else None
         }
@@ -888,6 +893,126 @@ def update_post_comment_count(post_id):
     except Exception as e:
         current_app.logger.error(f"댓글 수 업데이트 실패: {str(e)}")
         return api_error("댓글 수 업데이트에 실패했습니다", 500)
+
+# ============================================================================
+# 미디어 파일 업로드 API
+# ============================================================================
+
+@bp.route('/posts/media/check-permissions', methods=['GET'])
+@jwt_required
+def check_s3_permissions():
+    """S3 업로드 권한 확인"""
+    try:
+        s3_service = S3Service()
+        return api_response(
+            data={
+                "has_permission": True,
+                "bucket_name": current_app.config['S3_BUCKET_NAME'],
+                "folder_prefix": current_app.config['S3_FOLDER_PREFIX'],
+                "max_file_size": current_app.config['MAX_FILE_SIZE'],
+                "allowed_image_extensions": list(current_app.config['ALLOWED_IMAGE_EXTENSIONS']),
+                "file_type_support": "image_only"
+            },
+            message="S3 업로드 권한이 있습니다"
+        )
+    except Exception as e:
+        current_app.logger.error(f"S3 권한 확인 실패: {str(e)}")
+        return api_error(f"S3 업로드 권한이 없습니다: {str(e)}", 403)
+
+@bp.route('/posts/<post_id>/media', methods=['POST'])
+@jwt_required
+def upload_media(post_id):
+    """게시물에 미디어 파일 업로드 (S3에 저장)"""
+    try:
+        # 게시물 존재 확인
+        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
+        if not post:
+            return api_error("게시물을 찾을 수 없습니다", 404)
+        
+        # 파일 확인
+        if 'file' not in request.files:
+            return api_error("업로드할 파일이 없습니다", 400)
+        
+        file = request.files['file']
+        if file.filename == '':
+            return api_error("파일명이 없습니다", 400)
+        
+        # 이미지 파일만 지원
+        file_type = 'image'  # 항상 이미지로 고정
+        
+        # S3에 파일 업로드
+        s3_service = S3Service()
+        upload_result = s3_service.upload_file(file, post_id, file_type)
+        
+        # 미디어 파일 메타데이터 생성
+        media_info = {
+            "id": str(uuid.uuid4()),
+            "file_name": upload_result['file_name'],
+            "s3_key": upload_result['s3_key'],
+            "s3_url": upload_result['s3_url'],
+            "file_type": file_type,
+            "file_size": upload_result['file_size'],
+            "content_type": upload_result['content_type'],
+            "uploaded_at": kst_now().isoformat()
+        }
+        
+        # 게시물의 미디어 파일 목록에 추가
+        if not post.media_files:
+            post.media_files = []
+        
+        post.media_files.append(media_info)
+        post.media_count = len(post.media_files)
+        post.updated_at = kst_now()
+        
+        db.session.commit()
+        
+        return api_response(data=media_info, message="파일이 성공적으로 업로드되었습니다")
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"미디어 파일 업로드 실패: {str(e)}")
+        return api_error("파일 업로드 중 오류가 발생했습니다", 500)
+
+@bp.route('/posts/<post_id>/media/<media_id>', methods=['DELETE'])
+@jwt_required
+def delete_media(post_id, media_id):
+    """게시물에서 미디어 파일 삭제 (S3에서도 삭제)"""
+    try:
+        # 게시물 존재 확인
+        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
+        if not post:
+            return api_error("게시물을 찾을 수 없습니다", 404)
+        
+        # 미디어 파일 찾기
+        if not post.media_files:
+            return api_error("미디어 파일이 없습니다", 404)
+        
+        media_to_delete = None
+        for media in post.media_files:
+            if media['id'] == media_id:
+                media_to_delete = media
+                break
+        
+        if not media_to_delete:
+            return api_error("미디어 파일을 찾을 수 없습니다", 404)
+        
+        # S3에서 파일 삭제
+        s3_service = S3Service()
+        s3_service.delete_file(media_to_delete['s3_key'])
+        
+        # 게시물에서 미디어 파일 제거
+        post.media_files = [m for m in post.media_files if m['id'] != media_id]
+        post.media_count = len(post.media_files)
+        post.updated_at = kst_now()
+        
+        db.session.commit()
+        
+        return api_response(message="미디어 파일이 성공적으로 삭제되었습니다")
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"미디어 파일 삭제 실패: {str(e)}")
+        return api_error("파일 삭제 중 오류가 발생했습니다", 500)
 
 
 
