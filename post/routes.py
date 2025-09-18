@@ -381,7 +381,7 @@ def get_post(post_id):
         description: 게시글을 찾을 수 없음
     """
     try:
-        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
         if not post:
             return api_error("게시글을 찾을 수 없습니다", 404)
             
@@ -534,7 +534,7 @@ def update_post(post_id):
         description: 게시글을 찾을 수 없음
     """
     try:
-        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
         if not post:
             return api_error("게시글을 찾을 수 없습니다", 404)
         data = request.get_json(force=True, silent=False)
@@ -588,7 +588,7 @@ def delete_post(post_id):
         description: 게시글을 찾을 수 없음
     """
     try:
-        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
         if not post:
             return api_error("게시글을 찾을 수 없습니다", 404)
         
@@ -642,7 +642,7 @@ def like_post(post_id):
     try:
         current_app.logger.info(f"좋아요 요청 - post_id: {post_id}")
         
-        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
         if not post:
             current_app.logger.warning(f"게시글을 찾을 수 없습니다: {post_id}")
             return api_error("게시글을 찾을 수 없습니다", 404)
@@ -810,7 +810,7 @@ def toggle_like(post_id):
             }), 400
 
         # 게시글 존재 확인
-        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
         current_app.logger.info(f"게시글 조회 결과: {post.id if post else 'None'}")
         
         if not post:
