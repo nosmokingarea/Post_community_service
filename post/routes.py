@@ -268,48 +268,39 @@ def list_posts():
         user_id = request.args.get('user_id', None)
         sort = request.args.get('sort', 'latest')
 
-        # Flask-SQLAlchemy 2.x/3.x 호환: 2.x는 Query.paginate, 3.x는 db.paginate(select(...))
-        try:
-            query = Post.query.filter_by(status=PostStatus.visible)
-            if category_id:
-                query = query.filter_by(category_id=category_id)
-            if user_id:
-                query = query.filter_by(user_id=user_id)
-            if q:
-                query = query.filter(Post.title.like(f'%{q}%'))
+        # 안전한 쿼리: status 필터를 문자열로 변경하여 DB 호환성 확보
+        query = Post.query.filter_by(status='visible')
+        if category_id:
+            query = query.filter_by(category_id=category_id)
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        if q:
+            query = query.filter(Post.title.like(f'%{q}%'))
 
-            if sort == 'popular':
-                query = query.order_by(
-                    Post.like_count.desc(),
-                    Post.view_count.desc(),
-                    Post.created_at.desc()
-                )
-            else:
-                query = query.order_by(Post.No.desc())
+        if sort == 'popular':
+            query = query.order_by(
+                Post.like_count.desc(),
+                Post.view_count.desc(),
+                Post.created_at.desc()
+            )
+        else:
+            query = query.order_by(Post.No.desc())
 
-            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        except AttributeError:
-            # Fallback for Flask-SQLAlchemy 3.x
-            from sqlalchemy import select
-            stmt = select(Post).where(Post.status == PostStatus.visible)
-            if category_id:
-                from sqlalchemy import and_
-                stmt = stmt.where(Post.category_id == category_id)
-            if user_id:
-                stmt = stmt.where(Post.user_id == user_id)
-            if q:
-                stmt = stmt.where(Post.title.like(f'%{q}%'))
-
-            if sort == 'popular':
-                stmt = stmt.order_by(
-                    Post.like_count.desc(),
-                    Post.view_count.desc(),
-                    Post.created_at.desc()
-                )
-            else:
-                stmt = stmt.order_by(Post.No.desc())
-
-            pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
+        # 간단한 pagination: offset/limit 방식 사용
+        offset = (page - 1) * per_page
+        posts = query.offset(offset).limit(per_page).all()
+        total = query.count()
+        
+        # pagination 객체 생성
+        class SimplePagination:
+            def __init__(self, items, total, page, per_page):
+                self.items = items
+                self.total = total
+                self.page = page
+                self.per_page = per_page
+                self.pages = (total + per_page - 1) // per_page
+        
+        pagination = SimplePagination(posts, total, page, per_page)
 
         items = [{
             "id": p.id,
