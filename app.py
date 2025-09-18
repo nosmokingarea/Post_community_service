@@ -92,8 +92,8 @@ def create_app(config_class=None):
     )
     app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
-    # 블루프린트 등록
-    app.register_blueprint(bp, url_prefix='/api/v1')
+    # 블루프린트 등록 (블루프린트에 이미 '/api/v1' prefix가 설정되어 있으므로 중복 설정 금지)
+    app.register_blueprint(bp)
 
     # 전역 에러 핸들러
     @app.errorhandler(HTTPException)
