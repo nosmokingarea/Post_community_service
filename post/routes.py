@@ -264,30 +264,53 @@ def list_posts():
         page = int(request.args.get('page', 1))
         per_page = min(int(request.args.get('per_page', 10)), 50)
         q = request.args.get('q', '').strip()
-        category_id = request.args.get('category_id', None)  # 카테고리 필터
-        user_id = request.args.get('user_id', None)  # 사용자별 필터 (추가됨)
-        sort = request.args.get('sort', 'latest')  # 정렬 방식 (latest: 최신순, popular: 인기순)
+        category_id = request.args.get('category_id', None)
+        user_id = request.args.get('user_id', None)
+        sort = request.args.get('sort', 'latest')
 
-        query = Post.query.filter_by(status=PostStatus.visible)  # visible 상태만 조회 (추가됨)
-        if category_id:
-            query = query.filter_by(category_id=category_id)
-        if user_id:  # 사용자별 필터링 (추가됨)
-            query = query.filter_by(user_id=user_id)
-        
-        if q:
-            # SQLite에서는 LIKE 검색 사용
-            query = query.filter(
-                Post.title.like(f'%{q}%')
-            )
+        # Flask-SQLAlchemy 2.x/3.x 호환: 2.x는 Query.paginate, 3.x는 db.paginate(select(...))
+        try:
+            query = Post.query.filter_by(status=PostStatus.visible)
+            if category_id:
+                query = query.filter_by(category_id=category_id)
+            if user_id:
+                query = query.filter_by(user_id=user_id)
+            if q:
+                query = query.filter(Post.title.like(f'%{q}%'))
 
-        # 정렬 적용
-        if sort == 'popular':
-            query = query.order_by(Post.like_count.desc(), Post.view_count.desc(), Post.created_at.desc())  # 좋아요 → 조회수 → 생성시간 (추가됨)
-        else:  # latest (기본값)
-            query = query.order_by(Post.No.desc())  # No 컬럼 기준으로 변경 (추가됨)
+            if sort == 'popular':
+                query = query.order_by(
+                    Post.like_count.desc(),
+                    Post.view_count.desc(),
+                    Post.created_at.desc()
+                )
+            else:
+                query = query.order_by(Post.No.desc())
 
-        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        except AttributeError:
+            # Fallback for Flask-SQLAlchemy 3.x
+            from sqlalchemy import select
+            stmt = select(Post).where(Post.status == PostStatus.visible)
+            if category_id:
+                from sqlalchemy import and_
+                stmt = stmt.where(Post.category_id == category_id)
+            if user_id:
+                stmt = stmt.where(Post.user_id == user_id)
+            if q:
+                stmt = stmt.where(Post.title.like(f'%{q}%'))
+
+            if sort == 'popular':
+                stmt = stmt.order_by(
+                    Post.like_count.desc(),
+                    Post.view_count.desc(),
+                    Post.created_at.desc()
+                )
+            else:
+                stmt = stmt.order_by(Post.No.desc())
+
+            pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
+
         items = [{
             "id": p.id,
             "title": p.title,
@@ -297,9 +320,9 @@ def list_posts():
             "category": p.category,
             "view_count": p.view_count,
             "like_count": p.like_count,
-            "comment_count": p.comment_count,  # 데이터베이스의 댓글 수 사용 (추가됨)
-            "media_files": p.media_files or [],  # 미디어 파일 정보 추가
-            "media_count": p.media_count,  # 미디어 파일 개수 추가
+            "comment_count": p.comment_count,
+            "media_files": p.media_files or [],
+            "media_count": p.media_count,
             "created_at": p.created_at.isoformat(),
             "updated_at": p.updated_at.isoformat() if p.updated_at else None
         } for p in pagination.items]
@@ -312,7 +335,7 @@ def list_posts():
         }
 
         return api_response(data=items, meta=meta)
-        
+
     except Exception as e:
         current_app.logger.error(f"Error in list_posts: {str(e)}")
         return api_error("게시글 목록 조회 중 오류가 발생했습니다", 500)
