@@ -63,11 +63,16 @@ class PostService:
     @staticmethod
     def get_posts_by_category(category_id, page=1, per_page=10):
         """카테고리별 게시글 조회 - visible 상태만 조회 (추가됨)"""
-        return Post.query.filter_by(
-            category_id=category_id, status=PostStatus.visible
-        ).order_by(Post.created_at.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
+        try:
+            return Post.query.filter_by(
+                category_id=category_id, status=PostStatus.visible
+            ).order_by(Post.created_at.desc()).paginate(
+                page=page, per_page=per_page, error_out=False
+            )
+        except Exception as e:
+            # paginate 실패 시 빈 결과 반환
+            from flask_sqlalchemy import Pagination
+            return Pagination(None, page, per_page, 0, [])
     
     @staticmethod
     def update_post(post_id, **kwargs):
@@ -134,9 +139,14 @@ class PostService:
                 )
             )
         
-        return query.order_by(Post.created_at.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
+        try:
+            return query.order_by(Post.created_at.desc()).paginate(
+                page=page, per_page=per_page, error_out=False
+            )
+        except Exception as e:
+            # paginate 실패 시 빈 결과 반환
+            from flask_sqlalchemy import Pagination
+            return Pagination(None, page, per_page, 0, [])
 
 
 

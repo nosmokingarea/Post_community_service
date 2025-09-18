@@ -49,7 +49,7 @@ class Post(db.Model):
     view_count = db.Column(db.Integer, nullable=False, default=0)
     like_count = db.Column(db.Integer, nullable=False, default=0)
     comment_count = db.Column(db.Integer, nullable=False, default=0)
-    status = db.Column(db.Enum(PostStatus), default=PostStatus.visible)  # ENUM 타입 유지
+    status = db.Column(db.Enum(PostStatus), default=PostStatus.visible)  # ENUM 타입 사용
     
     # 미디어 파일 관련 필드 추가
     media_files = db.Column(db.JSON, nullable=True)  # 파일 메타데이터 JSON 저장
