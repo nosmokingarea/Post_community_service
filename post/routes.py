@@ -261,15 +261,8 @@ def list_posts():
                   type: integer
     """
     try:
-        try:
-            page = int(request.args.get('page', 1))
-        except (ValueError, TypeError):
-            page = 1
-        
-        try:
-            per_page = min(int(request.args.get('per_page', 10)), 50)
-        except (ValueError, TypeError):
-            per_page = 10
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 10)), 50)
         q = request.args.get('q', '').strip()
         category_id = request.args.get('category_id', None)  # 카테고리 필터
         user_id = request.args.get('user_id', None)  # 사용자별 필터 (추가됨)
@@ -293,68 +286,29 @@ def list_posts():
         else:  # latest (기본값)
             query = query.order_by(Post.No.desc())  # No 컬럼 기준으로 변경 (추가됨)
 
-        # Flask-SQLAlchemy 호환성 처리
-        try:
-            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        except (AttributeError, Exception) as paginate_error:
-            # Flask-SQLAlchemy 3.x fallback 또는 DB 오류 처리
-            current_app.logger.warning(f"Pagination 오류: {str(paginate_error)}")
-            try:
-                from sqlalchemy import select
-                stmt = select(Post).where(Post.status == PostStatus.visible)
-                if category_id:
-                    stmt = stmt.where(Post.category_id == category_id)
-                if user_id:
-                    stmt = stmt.where(Post.user_id == user_id)
-                if q:
-                    stmt = stmt.where(Post.title.like(f'%{q}%'))
-                
-                if sort == 'popular':
-                    stmt = stmt.order_by(Post.like_count.desc(), Post.view_count.desc(), Post.created_at.desc())
-                else:
-                    stmt = stmt.order_by(Post.No.desc())
-                
-                pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
-            except Exception as fallback_error:
-                current_app.logger.error(f"Fallback pagination 실패: {str(fallback_error)}")
-                # 완전 실패 시 빈 pagination 객체 생성
-                from flask_sqlalchemy import Pagination
-                pagination = Pagination(None, page, per_page, 0, [])
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         
-        # pagination 객체 안전하게 접근
-        items = []
-        try:
-            pagination_items = getattr(pagination, 'items', [])
-            for p in pagination_items:
-                try:
-                    item = {
-                        "id": getattr(p, 'id', ''),
-                        "title": getattr(p, 'title', ''),
-                        "content": getattr(p, 'content', ''),
-                        "username": getattr(p, 'username', ''),
-                        "user_id": getattr(p, 'user_id', ''),
-                        "category": getattr(p, 'category', ''),
-                        "view_count": getattr(p, 'view_count', 0),
-                        "like_count": getattr(p, 'like_count', 0),
-                        "comment_count": getattr(p, 'comment_count', 0),
-                        "media_files": getattr(p, 'media_files', []) or [],
-                        "media_count": getattr(p, 'media_count', 0),
-                        "created_at": getattr(p, 'created_at', None).isoformat() if getattr(p, 'created_at', None) else None,
-                        "updated_at": getattr(p, 'updated_at', None).isoformat() if getattr(p, 'updated_at', None) else None
-                    }
-                    items.append(item)
-                except Exception as item_error:
-                    current_app.logger.warning(f"게시글 변환 중 오류: {str(item_error)}")
-                    continue
-        except Exception as items_error:
-            current_app.logger.warning(f"pagination.items 접근 오류: {str(items_error)}")
-            items = []
+        items = [{
+            "id": p.id,
+            "title": p.title,
+            "content": p.content,
+            "username": p.username,
+            "user_id": p.user_id,
+            "category": p.category,
+            "view_count": p.view_count,
+            "like_count": p.like_count,
+            "comment_count": p.comment_count,  # 데이터베이스의 댓글 수 사용 (추가됨)
+            "media_files": p.media_files or [],  # 미디어 파일 정보 추가
+            "media_count": p.media_count,  # 미디어 파일 개수 추가
+            "created_at": p.created_at.isoformat(),
+            "updated_at": p.updated_at.isoformat() if p.updated_at else None
+        } for p in pagination.items]
 
         meta = {
-            "page": getattr(pagination, 'page', page),
-            "per_page": getattr(pagination, 'per_page', per_page),
-            "total": getattr(pagination, 'total', len(items)),
-            "pages": getattr(pagination, 'pages', 1)
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "total": pagination.total,
+            "pages": pagination.pages
         }
 
         return api_response(data=items, meta=meta)
@@ -447,11 +401,7 @@ def get_post(post_id):
 def create_post():
     """게시글 작성"""
     try:
-        try:
-            data = request.get_json()
-        except Exception as json_error:
-            current_app.logger.error(f"JSON 파싱 오류: {str(json_error)}")
-            return jsonify({'error': '잘못된 JSON 형식입니다.'}), 400
+        data = request.get_json()
         
         if not data:
             return jsonify({'error': '요청 데이터가 없습니다.'}), 400
@@ -564,12 +514,7 @@ def update_post(post_id):
         post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()  # visible 상태만 조회 (추가됨)
         if not post:
             return api_error("게시글을 찾을 수 없습니다", 404)
-        
-        try:
-            data = request.get_json(force=True, silent=False)
-        except Exception as json_error:
-            current_app.logger.error(f"JSON 파싱 오류: {str(json_error)}")
-            return api_error("잘못된 JSON 형식입니다", 400)
+        data = request.get_json(force=True, silent=False)
 
         if request.method == 'PUT':
             title = (data.get('title') or '').strip()
@@ -681,11 +626,7 @@ def like_post(post_id):
         
         current_app.logger.info(f"게시글 조회 성공: {post.id}")
         
-        try:
-            data = request.get_json(force=True, silent=False)
-        except Exception as json_error:
-            current_app.logger.error(f"JSON 파싱 오류: {str(json_error)}")
-            return api_error("잘못된 JSON 형식입니다", 400)
+        data = request.get_json(force=True, silent=False)
         current_app.logger.info(f"요청 데이터: {data}")
         
         user_id = data.get('user_id')
@@ -779,12 +720,7 @@ def create_category():
         description: 잘못된 요청 데이터
     """
     try:
-        try:
-            data = request.get_json(force=True, silent=False)
-        except Exception as json_error:
-            current_app.logger.error(f"JSON 파싱 오류: {str(json_error)}")
-            return api_error("잘못된 JSON 형식입니다", 400)
-        
+        data = request.get_json(force=True, silent=False)
         name = data.get('name', '').strip()
         
         if not name:
@@ -837,15 +773,7 @@ def toggle_like(post_id):
     """게시글 좋아요 토글 (좋아요 추가/제거)"""
     try:
         # JWT 토큰에서 사용자 ID 추출 (임시로 request body에서 가져옴)
-        try:
-            data = request.get_json()
-        except Exception as json_error:
-            current_app.logger.error(f"JSON 파싱 오류: {str(json_error)}")
-            return jsonify({
-                "success": False,
-                "message": "잘못된 JSON 형식입니다."
-            }), 400
-        
+        data = request.get_json()
         current_app.logger.info(f"좋아요 요청 데이터: {data}")
         
         user_id = data.get('user_id')
@@ -990,11 +918,6 @@ def check_s3_permissions():
     except Exception as e:
         current_app.logger.error(f"S3 권한 확인 실패: {str(e)}")
         return api_error(f"S3 업로드 권한이 없습니다: {str(e)}", 403)
-
-@bp.route('/posts/<post_id>/media', methods=['OPTIONS'])
-def upload_media_options(post_id):
-    """CORS preflight 지원: 인증 없이 204 응답"""
-    return ('', 204)
 
 @bp.route('/posts/<post_id>/media', methods=['POST'])
 @jwt_required

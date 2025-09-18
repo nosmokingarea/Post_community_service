@@ -76,8 +76,8 @@ class Post(db.Model):
             "like_count": self.like_count,
             "comment_count": self.comment_count,
             "status": self.status.value if self.status else None,  # ENUM 값으로 변경 (추가됨)
-            "media_files": self.media_files or [],  # 미디어 파일 정보 추가
-            "media_count": self.media_count,  # 미디어 파일 개수 추가
+            "media_files": getattr(self, 'media_files', []) or [],  # 미디어 파일 정보 추가
+            "media_count": getattr(self, 'media_count', 0),  # 미디어 파일 개수 추가
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
