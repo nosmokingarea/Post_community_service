@@ -919,6 +919,11 @@ def check_s3_permissions():
         current_app.logger.error(f"S3 권한 확인 실패: {str(e)}")
         return api_error(f"S3 업로드 권한이 없습니다: {str(e)}", 403)
 
+@bp.route('/posts/<post_id>/media', methods=['OPTIONS'])
+def upload_media_options(post_id):
+    """CORS preflight 지원: 인증 없이 204 응답"""
+    return ('', 204)
+
 @bp.route('/posts/<post_id>/media', methods=['POST'])
 @jwt_required
 def upload_media(post_id):

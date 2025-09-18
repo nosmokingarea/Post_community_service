@@ -13,7 +13,7 @@ from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
 
 from post.models import db
-from post.routes import bp
+from post.routes import api
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
