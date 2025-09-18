@@ -23,5 +23,9 @@ class Config:
     COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', 'ap-northeast-2_nneGIIVuJ')
     COGNITO_REGION = os.environ.get('COGNITO_REGION', 'ap-northeast-2')
     COGNITO_CLIENT_ID = os.environ.get('COGNITO_CLIENT_ID', '2v16jp80j40neuuhtlgg8t')
+    
+    # AWS X-Ray 설정
+    AWS_XRAY_TRACING_NAME = os.environ.get('AWS_XRAY_TRACING_NAME', 'post-service')
+    AWS_XRAY_CONTEXT_MISSING = os.environ.get('AWS_XRAY_CONTEXT_MISSING', 'LOG_ERROR')
 
 
