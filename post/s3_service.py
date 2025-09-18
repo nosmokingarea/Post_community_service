@@ -96,8 +96,7 @@ class S3Service:
                 self.bucket_name,
                 s3_key,
                 ExtraArgs={
-                    'ContentType': file.content_type or 'application/octet-stream',
-                    'ACL': 'public-read'  # 공개 읽기 권한
+                    'ContentType': file.content_type or 'application/octet-stream'
                 }
             )
             
