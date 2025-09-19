@@ -981,44 +981,78 @@ def upload_media(post_id):
         if not post:
             return api_error("게시물을 찾을 수 없습니다", 404)
         
-        # 파일 확인
-        if 'file' not in request.files:
-            return api_error("업로드할 파일이 없습니다", 400)
+        # 파일 확인 (단일 파일 또는 다중 파일 지원)
+        uploaded_files = []
         
-        file = request.files['file']
-        if file.filename == '':
-            return api_error("파일명이 없습니다", 400)
+        # 단일 파일 업로드 (기존 방식)
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                uploaded_files.append(file)
+        
+        # 다중 파일 업로드 (새로운 방식)
+        if 'files[]' in request.files:
+            files = request.files.getlist('files[]')
+            for file in files:
+                if file.filename != '':
+                    uploaded_files.append(file)
+        
+        if not uploaded_files:
+            return api_error("업로드할 파일이 없습니다", 400)
         
         # 이미지 파일만 지원
         file_type = 'image'  # 항상 이미지로 고정
         
-        # S3에 파일 업로드
+        # S3에 파일들 업로드
         s3_service = S3Service()
-        upload_result = s3_service.upload_file(file, post_id, file_type)
+        media_infos = []
         
-        # 미디어 파일 메타데이터 생성
-        media_info = {
-            "id": str(uuid.uuid4()),
-            "file_name": upload_result['file_name'],
-            "s3_key": upload_result['s3_key'],
-            "s3_url": upload_result['s3_url'],
-            "file_type": file_type,
-            "file_size": upload_result['file_size'],
-            "content_type": upload_result['content_type'],
-            "uploaded_at": kst_now().isoformat()
-        }
+        for file in uploaded_files:
+            try:
+                upload_result = s3_service.upload_file(file, post_id, file_type)
+                
+                # 미디어 파일 메타데이터 생성
+                media_info = {
+                    "id": str(uuid.uuid4()),
+                    "file_name": upload_result['file_name'],
+                    "s3_key": upload_result['s3_key'],
+                    "s3_url": upload_result['s3_url'],
+                    "file_type": file_type,
+                    "file_size": upload_result['file_size'],
+                    "content_type": upload_result['content_type'],
+                    "uploaded_at": kst_now().isoformat()
+                }
+                
+                media_infos.append(media_info)
+                
+            except Exception as e:
+                current_app.logger.error(f"파일 업로드 실패: {file.filename}, {str(e)}")
+                continue  # 실패한 파일은 건너뛰고 계속 진행
+        
+        if not media_infos:
+            return api_error("모든 파일 업로드에 실패했습니다", 500)
         
         # 게시물의 미디어 파일 목록에 추가
         if not post.media_files:
             post.media_files = []
         
-        post.media_files.append(media_info)
+        post.media_files.extend(media_infos)
         post.media_count = len(post.media_files)
         post.updated_at = kst_now()
         
         db.session.commit()
         
-        return api_response(data=media_info, message="파일이 성공적으로 업로드되었습니다")
+        # 응답 데이터 결정
+        if len(media_infos) == 1:
+            # 단일 파일 업로드인 경우
+            return api_response(data=media_infos[0], message="파일이 성공적으로 업로드되었습니다")
+        else:
+            # 다중 파일 업로드인 경우
+            return api_response(data={
+                "uploaded_files": media_infos,
+                "total_count": len(media_infos),
+                "failed_count": len(uploaded_files) - len(media_infos)
+            }, message=f"{len(media_infos)}개 파일이 성공적으로 업로드되었습니다")
         
     except Exception as e:
         db.session.rollback()
