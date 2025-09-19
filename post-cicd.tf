@@ -110,7 +110,8 @@ data "aws_iam_policy_document" "cb_policy" {
       "s3:PutObject",
       "s3:PutObjectAcl",
       "s3:GetBucketVersioning",
-      "s3:GetBucketLocation"
+      "s3:GetBucketLocation",
+      "s3:ListBucket"
     ]
     resources = [
       "${data.aws_s3_bucket.artifacts.arn}/*",
@@ -236,7 +237,8 @@ data "aws_iam_policy_document" "cp_policy" {
       "s3:PutObject",
       "s3:PutObjectAcl",
       "s3:GetBucketVersioning",
-      "s3:GetBucketLocation"
+      "s3:GetBucketLocation",
+      "s3:ListBucket"
     ]
     resources = [
       "${data.aws_s3_bucket.artifacts.arn}/*",
