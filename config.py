@@ -29,6 +29,12 @@ class Config:
     S3_REGION = os.environ.get('S3_REGION', 'ap-northeast-2')
     S3_FOLDER_PREFIX = os.environ.get('S3_FOLDER_PREFIX', 'image_files')
     
+    # CloudFront 설정
+    CLOUDFRONT_DOMAIN = os.environ.get('CLOUDFRONT_DOMAIN', 'd2q8p4e5r7v3s9.cloudfront.net')
+    
+    # API Gateway 설정
+    API_GATEWAY_DOMAIN = os.environ.get('API_GATEWAY_DOMAIN', 'api.hhottdogg.shop')
+    
     # 파일 업로드 설정 (이미지만 지원)
     MAX_FILE_SIZE = int(os.environ.get('MAX_FILE_SIZE', 5 * 1024 * 1024))  # 5MB
     ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}

@@ -5,7 +5,7 @@ MSA 환경에서 독립적으로 동작하는 Post 서비스 API입니다.
 
 import boto3
 import os
-from flask import Blueprint, request, jsonify, abort, current_app
+from flask import Blueprint, request, jsonify, abort, current_app, Response
 from .models import db, Post, Like, Category, kst_now, PostStatus
 from .services import PostService, CategoryService
 from .validators import PostValidator
@@ -288,21 +288,34 @@ def list_posts():
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         
-        items = [{
-            "id": p.id,
-            "title": p.title,
-            "content": p.content,
-            "username": p.username,
-            "user_id": p.user_id,
-            "category": p.category,
-            "view_count": p.view_count,
-            "like_count": p.like_count,
-            "comment_count": p.comment_count,  # 데이터베이스의 댓글 수 사용 (추가됨)
-            "media_files": p.media_files or [],  # 미디어 파일 정보 추가
-            "media_count": p.media_count,  # 미디어 파일 개수 추가
-            "created_at": p.created_at.isoformat(),
-            "updated_at": p.updated_at.isoformat() if p.updated_at else None
-        } for p in pagination.items]
+        items = []
+        for p in pagination.items:
+            # 실시간 댓글 수 조회
+            try:
+                comment_response = requests.get(f"http://comment-service:8083/api/v1/posts/{p.id}/comments?page=1&size=1", timeout=2)
+                if comment_response.status_code == 200:
+                    comment_data = comment_response.json()
+                    real_comment_count = comment_data.get('data', {}).get('total', 0)
+                else:
+                    real_comment_count = p.comment_count  # 실패 시 DB 값 사용
+            except Exception:
+                real_comment_count = p.comment_count  # 실패 시 DB 값 사용
+            
+            items.append({
+                "id": p.id,
+                "title": p.title,
+                "content": p.content,
+                "username": p.username,
+                "user_id": p.user_id,
+                "category": p.category,
+                "view_count": p.view_count,
+                "like_count": p.like_count,
+                "comment_count": real_comment_count,  # 실시간 댓글 수 사용
+                "media_files": p.media_files or [],  # 미디어 파일 정보 추가
+                "media_count": p.media_count,  # 미디어 파일 개수 추가
+                "created_at": p.created_at.isoformat(),
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None
+            })
 
         meta = {
             "page": pagination.page,
@@ -358,7 +371,11 @@ def get_post(post_id):
         description: 게시글을 찾을 수 없음
     """
     try:
-        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()  # visible 상태만 조회 (추가됨)
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
+        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
         if not post:
             return api_error("게시글을 찾을 수 없습니다", 404)
             
@@ -370,6 +387,17 @@ def get_post(post_id):
             post.view_count += 1
             db.session.commit()
         
+        # 실시간 댓글 수 조회
+        try:
+            comment_response = requests.get(f"http://comment-service:8083/api/v1/posts/{post.id}/comments?page=1&size=1", timeout=2)
+            if comment_response.status_code == 200:
+                comment_data = comment_response.json()
+                real_comment_count = comment_data.get('data', {}).get('total', 0)
+            else:
+                real_comment_count = post.comment_count  # 실패 시 DB 값 사용
+        except Exception:
+            real_comment_count = post.comment_count  # 실패 시 DB 값 사용
+        
         data = {
             "id": post.id,
             "title": post.title,
@@ -379,7 +407,7 @@ def get_post(post_id):
             "category": post.category,
             "view_count": post.view_count,
             "like_count": post.like_count,
-            "comment_count": post.comment_count,  # 데이터베이스의 댓글 수 사용 (추가됨)
+            "comment_count": real_comment_count,  # 실시간 댓글 수 사용
             "media_files": post.media_files or [],  # 미디어 파일 정보 추가
             "media_count": post.media_count,  # 미디어 파일 개수 추가
             "created_at": post.created_at.isoformat(),
@@ -511,7 +539,11 @@ def update_post(post_id):
         description: 게시글을 찾을 수 없음
     """
     try:
-        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()  # visible 상태만 조회 (추가됨)
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
+        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
         if not post:
             return api_error("게시글을 찾을 수 없습니다", 404)
         data = request.get_json(force=True, silent=False)
@@ -565,12 +597,12 @@ def delete_post(post_id):
         description: 게시글을 찾을 수 없음
     """
     try:
-        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
         if not post:
             return api_error("게시글을 찾을 수 없습니다", 404)
         
         # Soft Delete: status를 'deleted'로 변경 (추가됨)
-        post.status = PostStatus.deleted
+        post.status = 'deleted'
         post.updated_at = kst_now()
         db.session.commit()
         return api_response(message="게시글이 성공적으로 삭제되었습니다")
@@ -617,9 +649,13 @@ def like_post(post_id):
         description: 이미 좋아요를 누른 게시글
     """
     try:
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
         current_app.logger.info(f"좋아요 요청 - post_id: {post_id}")
         
-        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
         if not post:
             current_app.logger.warning(f"게시글을 찾을 수 없습니다: {post_id}")
             return api_error("게시글을 찾을 수 없습니다", 404)
@@ -772,6 +808,10 @@ def create_category():
 def toggle_like(post_id):
     """게시글 좋아요 토글 (좋아요 추가/제거)"""
     try:
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
         # JWT 토큰에서 사용자 ID 추출 (임시로 request body에서 가져옴)
         data = request.get_json()
         current_app.logger.info(f"좋아요 요청 데이터: {data}")
@@ -787,7 +827,7 @@ def toggle_like(post_id):
             }), 400
 
         # 게시글 존재 확인
-        post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()  # visible 상태만 조회 (추가됨)
+        post = Post.query.filter_by(id=post_id, status='visible').first()  # visible 상태만 조회 (추가됨)
         current_app.logger.info(f"게시글 조회 결과: {post.id if post else 'None'}")
         
         if not post:
@@ -847,6 +887,10 @@ def toggle_like(post_id):
 def get_like_status(post_id):
     """사용자의 게시글 좋아요 상태 확인"""
     try:
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
         user_id = request.args.get('user_id')
         
         if not user_id:
@@ -881,6 +925,10 @@ def get_like_status(post_id):
 def update_post_comment_count(post_id):
     """특정 게시글의 댓글 수를 업데이트 (Comment 서비스에서 호출용) (추가됨)"""
     try:
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
         # Comment 서비스에서 댓글 수 가져와서 업데이트
         comment_count = PostService.update_comment_count(post_id)
         
@@ -924,6 +972,10 @@ def check_s3_permissions():
 def upload_media(post_id):
     """게시물에 미디어 파일 업로드 (S3에 저장)"""
     try:
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
         # 게시물 존재 확인
         post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
         if not post:
@@ -978,6 +1030,10 @@ def upload_media(post_id):
 def delete_media(post_id, media_id):
     """게시물에서 미디어 파일 삭제 (S3에서도 삭제)"""
     try:
+        # post_id 유효성 검사
+        if not post_id or post_id == 'null' or post_id == 'undefined':
+            return api_error("유효하지 않은 게시물 ID입니다", 400)
+        
         # 게시물 존재 확인
         post = Post.query.filter_by(id=post_id, status=PostStatus.visible).first()
         if not post:
@@ -1013,6 +1069,35 @@ def delete_media(post_id, media_id):
         db.session.rollback()
         current_app.logger.error(f"미디어 파일 삭제 실패: {str(e)}")
         return api_error("파일 삭제 중 오류가 발생했습니다", 500)
+
+@bp.route('/images/<path:image_path>', methods=['GET'])
+def serve_image(image_path):
+    """S3에서 이미지 파일을 프록시하여 서빙 (API Gateway를 통한 접근)"""
+    try:
+        # S3 키 생성 (image_files/ 접두사 추가)
+        s3_key = f"image_files/{image_path}"
+        
+        # S3에서 파일 조회
+        s3_service = S3Service()
+        file_data = s3_service.get_file_content(s3_key)
+        
+        if not file_data:
+            return api_error("이미지를 찾을 수 없습니다", 404)
+        
+        # 파일 내용과 메타데이터 반환
+        return Response(
+            file_data['body'],
+            mimetype=file_data['content_type'],
+            headers={
+                'Cache-Control': 'public, max-age=31536000',  # 1년 캐시
+                'Content-Length': str(file_data['content_length']),
+                'Last-Modified': file_data['last_modified'].strftime('%a, %d %b %Y %H:%M:%S GMT')
+            }
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"이미지 서빙 실패: {str(e)}")
+        return api_error("이미지 서빙 중 오류가 발생했습니다", 500)
 
 
 

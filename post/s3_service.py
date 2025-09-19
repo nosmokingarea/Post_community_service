@@ -100,8 +100,9 @@ class S3Service:
                 }
             )
             
-            # S3 URL 생성
-            s3_url = f"https://{self.bucket_name}.s3.{current_app.config['S3_REGION']}.amazonaws.com/{s3_key}"
+            # API Gateway를 통한 이미지 서빙 URL 생성 (image_files/ 접두사 제거)
+            api_gateway_domain = current_app.config.get('API_GATEWAY_DOMAIN', 'api.hhottdogg.shop')
+            s3_url = f"https://{api_gateway_domain}/api/v1/images/{s3_key.replace('image_files/', '')}"
             
             logger.info(f"파일 업로드 성공 - S3 Key: {s3_key}")
             
@@ -160,9 +161,36 @@ class S3Service:
         return True
     
     def get_file_url(self, s3_key):
-        """S3 키로부터 파일 URL 생성"""
-        return f"https://{self.bucket_name}.s3.{current_app.config['S3_REGION']}.amazonaws.com/{s3_key}"
+        """S3 키로부터 API Gateway URL 생성 (image_files/ 접두사 제거)"""
+        api_gateway_domain = current_app.config.get('API_GATEWAY_DOMAIN', 'api.hhottdogg.shop')
+        return f"https://{api_gateway_domain}/api/v1/images/{s3_key.replace('image_files/', '')}"
     
+    def get_file_content(self, s3_key):
+        """S3에서 파일 내용과 메타데이터 조회"""
+        try:
+            response = self.s3_client.get_object(
+                Bucket=self.bucket_name,
+                Key=s3_key
+            )
+            
+            return {
+                'body': response['Body'].read(),
+                'content_type': response['ContentType'],
+                'content_length': response['ContentLength'],
+                'last_modified': response['LastModified']
+            }
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == 'NoSuchKey':
+                logger.warning(f"파일을 찾을 수 없습니다: {s3_key}")
+                return None
+            else:
+                logger.error(f"파일 조회 실패: {str(e)}")
+                return None
+        except Exception as e:
+            logger.error(f"파일 조회 중 오류: {str(e)}")
+            return None
+
     def list_files(self, post_id, file_type=None):
         """특정 게시물의 파일 목록 조회"""
         try:

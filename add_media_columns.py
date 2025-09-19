@@ -118,3 +118,4 @@ if __name__ == "__main__":
     else:
         print("❌ 마이그레이션 실패")
         sys.exit(1)
+
