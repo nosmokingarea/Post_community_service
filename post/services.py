@@ -108,7 +108,7 @@ class PostService:
         """특정 게시글의 댓글 수를 데이터베이스에 업데이트 (추가됨)"""
         try:
             # Comment 서비스에서 댓글 수 가져오기
-            response = requests.get(f"http://comment-service:8083/api/v1/posts/{post_id}/comments?page=1&size=1")
+            response = requests.get(f"https://api.hhottdogg.shop/api/v1/posts/{post_id}/comments?page=1&size=1")
             if response.status_code == 200:
                 data = response.json()
                 comment_count = data.get('data', {}).get('total', 0)

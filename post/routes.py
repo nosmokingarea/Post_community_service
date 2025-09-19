@@ -292,7 +292,7 @@ def list_posts():
         for p in pagination.items:
             # 실시간 댓글 수 조회
             try:
-                comment_response = requests.get(f"http://comment-service:8083/api/v1/posts/{p.id}/comments?page=1&size=1", timeout=2)
+                comment_response = requests.get(f"https://api.hhottdogg.shop/api/v1/posts/{p.id}/comments?page=1&size=1", timeout=2)
                 if comment_response.status_code == 200:
                     comment_data = comment_response.json()
                     real_comment_count = comment_data.get('data', {}).get('total', 0)
@@ -389,7 +389,7 @@ def get_post(post_id):
         
         # 실시간 댓글 수 조회
         try:
-            comment_response = requests.get(f"http://comment-service:8083/api/v1/posts/{post.id}/comments?page=1&size=1", timeout=2)
+            comment_response = requests.get(f"https://api.hhottdogg.shop/api/v1/posts/{post.id}/comments?page=1&size=1", timeout=2)
             if comment_response.status_code == 200:
                 comment_data = comment_response.json()
                 real_comment_count = comment_data.get('data', {}).get('total', 0)
