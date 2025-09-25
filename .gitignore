@@ -4,6 +4,9 @@
 .terraform/
 .terraform.lock.hcl
 
+# Exclude backup directories generated during ops
+backup_*/
+
 # Python
 __pycache__/
 *.pyc
