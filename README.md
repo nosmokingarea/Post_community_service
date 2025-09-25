@@ -486,4 +486,4 @@ kubectl get events -n post-service --sort-by='.lastTimestamp'
 ---
 
 **버전**: 1.0.0  
-**최종 업데이트**: 2024년 12월
+**최종 업데이트**: 2025년 1월 25일
