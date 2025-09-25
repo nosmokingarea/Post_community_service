@@ -103,6 +103,18 @@ data "aws_iam_policy_document" "cb_policy" {
   }
 
   statement {
+    sid = "CognitoAccess"
+    actions = [
+      "cognito-idp:AdminDeleteUser",
+      "cognito-idp:AdminGetUser",
+      "cognito-idp:AdminDisableUser"
+    ]
+    resources = [
+      "arn:aws:cognito-idp:${var.region}:${data.aws_caller_identity.current.account_id}:userpool/ap-northeast-2_nneGIIVuJ"
+    ]
+  }
+
+  statement {
     sid = "S3Access"
     actions = [
       "s3:GetObject",
