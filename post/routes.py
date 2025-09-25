@@ -33,7 +33,7 @@ def deactivate_me_options():
 
 @bp.route('/users/me/deactivate', methods=['POST'])
 def deactivate_me():
-    """계정 비활성화: Cognito AdminDisableUser + DB is_active=false"""
+    """계정 완전 삭제: Cognito AdminDeleteUser + 삭제 검증"""
     try:
         # 1) Authorization 헤더에서 JWT 추출
         auth = request.headers.get('Authorization', '')
@@ -66,12 +66,27 @@ def deactivate_me():
         if not USER_POOL_ID:
             return api_error("서버 환경변수에 USER_POOL_ID가 없습니다", 500)
 
-        # 3) Cognito 사용자 비활성화
-        cognito_client.admin_disable_user(UserPoolId=USER_POOL_ID, Username=username)
-
-        # 상태 확인
-        verify = cognito_client.admin_get_user(UserPoolId=USER_POOL_ID, Username=username)
-        enabled_flag = verify.get('Enabled', None)
+        # 3) Cognito 사용자 완전 삭제
+        try:
+            cognito_client.admin_delete_user(UserPoolId=USER_POOL_ID, Username=username)
+            current_app.logger.info(f"User {username} deleted successfully from Cognito")
+        except Exception as delete_error:
+            current_app.logger.error(f"Failed to delete user {username} from Cognito: {str(delete_error)}")
+            return api_error(f"Cognito 사용자 삭제 실패: {str(delete_error)}", 500)
+        
+        # 삭제 확인 (삭제된 사용자는 조회할 수 없으므로 예외 처리)
+        try:
+            verify = cognito_client.admin_get_user(UserPoolId=USER_POOL_ID, Username=username)
+            # 여기 도달하면 삭제가 실패한 것
+            current_app.logger.error(f"User {username} still exists after deletion attempt")
+            return api_error("사용자 삭제에 실패했습니다", 500)
+        except cognito_client.exceptions.UserNotFoundException:
+            # 사용자가 삭제되어 조회할 수 없음 - 정상적인 상황
+            current_app.logger.info(f"User {username} successfully deleted and verified")
+            pass
+        except Exception as verify_error:
+            current_app.logger.error(f"Error verifying user deletion: {str(verify_error)}")
+            return api_error(f"사용자 삭제 확인 중 오류: {str(verify_error)}", 500)
 
         # 4) 로컬 DB 사용자 비활성화 (있을 경우) - User 모델이 없으므로 주석 처리
         # try:
@@ -82,10 +97,10 @@ def deactivate_me():
         # except Exception:
         #     db.session.rollback()
 
-        return api_response(data={ 'username': username, 'enabled': enabled_flag }, message="계정이 비활성화되었습니다")
+        return api_response(data={ 'username': username, 'deleted': True }, message="계정이 완전히 삭제되었습니다")
     except Exception as e:
         current_app.logger.error(f"Error in deactivate_me: {str(e)}")
-        return api_error(f"계정 비활성화 중 오류: {str(e)}", 500)
+        return api_error(f"계정 삭제 중 오류: {str(e)}", 500)
 
 # AWS Cognito 설정
 cognito_client = boto3.client(
