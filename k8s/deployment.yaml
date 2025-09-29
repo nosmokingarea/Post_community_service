@@ -27,6 +27,17 @@ spec:
                 name: post-db-secret
             - secretRef:
                 name: post-secrets
+          env:
+            - name: S3_BUCKET_NAME
+              value: "karina-winter"
+            - name: S3_REGION
+              value: "ap-northeast-2"
+            - name: S3_FOLDER_PREFIX
+              value: "image_files"
+            - name: CLOUDFRONT_DOMAIN
+              value: "d1yro8photnpwi.cloudfront.net"
+            - name: API_GATEWAY_DOMAIN
+              value: "api.hhottdogg.shop"
           resources:
             requests:
               memory: "512Mi"
@@ -36,14 +47,14 @@ spec:
               cpu: "700m"
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /health
               port: 8082
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 5
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /health
               port: 8082
             initialDelaySeconds: 15
             periodSeconds: 5
@@ -61,7 +72,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "HTTP"
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "traffic-port"
-    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/healthz"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/health"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
 spec:
   selector:

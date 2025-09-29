@@ -31,7 +31,7 @@ COPY . .
 RUN mkdir -p uploads && chmod 755 uploads
 RUN mkdir -p instance && chmod 755 instance
 
-EXPOSE 5000
+EXPOSE 8082
 
 # 환경 변수 설정
 ENV FLASK_APP=app.py
