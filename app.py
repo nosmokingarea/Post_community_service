@@ -60,7 +60,7 @@ def create_app(config_class=None):
             db_url = app.config['SQLALCHEMY_DATABASE_URI']
             parsed = urlparse(db_url)
             db_name = parsed.path[1:]
-            base_url = f"{parsed.scheme}://{parsed.netloc}/"
+            base_url = f"{parsed.scheme}://{parsed.netloc}"
             
             engine = create_engine(base_url)
             with engine.connect() as conn:
